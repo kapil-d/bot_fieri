@@ -133,3 +133,17 @@ void setDirection(bool motorDirection, int DIR_PIN1, int DIR_PIN2) {
   digitalWrite(DIR_PIN1, motorDirection);
   digitalWrite(DIR_PIN2, !motorDirection);
 }
+
+// -------------------- Orientation Pseudo Code --------------------
+
+/* void orient(EO data, Limit Switch Data) {
+  Find highest two adjacent EO
+  Rotate to this direction --> setDirection(1 left) setDirection(2 right), HELPER: calcRotationAngle(Adjancent EO Signals relative to onboard)
+  while (<2 limit switches active) {
+    setMotorsForward(MAX) // or back if preferred for speed
+  }
+  stopMotors()
+
+  // Now centered (can set coords if we choose to)
+}
+*/
