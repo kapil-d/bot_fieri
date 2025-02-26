@@ -18,6 +18,8 @@
 #define RIGHT_DIRECTION1 12
 #define RIGHT_DIRECTION2 11
 
+#define TEST_IN 4
+
 // -------------------- Global Variables --------------------
 volatile bool inMotion = false; // Tracks if motors are currently moving
 
@@ -43,6 +45,8 @@ void setup() {
   pinMode(RIGHT_DIRECTION1, OUTPUT);
   pinMode(RIGHT_DIRECTION2, OUTPUT);
 
+  pinMode(TEST_IN, INPUT);
+
   // Always enable the motor driver, set motor speed to 0
   digitalWrite(LEFT_ENABLE, HIGH);
   digitalWrite(RIGHT_ENABLE, HIGH);
@@ -58,31 +62,45 @@ void setup() {
 
 // -------------------- Loop --------------------
 void loop() {
-  if (Serial.available() > 0) {
-    char c = Serial.read();
+//   if (Serial.available() > 0) {
+//     char c = Serial.read();
 
-    if (c == 'f') {
-      // Move motors forward at speed 255
-      setMotorsForward(255);
-      // Schedule a stop after 1 second (1000 ms)
-      ITimer1.attachInterruptInterval(1000, stopMotors, 1000);
-      inMotion = true;
-    }
-    else if (c == 'b') {
-      // Move motors backward at speed 255
-      setMotorsBackward(255);
-      // Schedule a stop after 1 second (1000 ms)
-      ITimer1.attachInterruptInterval(1000, stopMotors, 1000);
-      inMotion = true;
-    }
+//     if (c == 'f') {
+//       // Move motors forward at speed 255
+//       setMotorsForward(255);
+//       // Schedule a stop after 1 second (1000 ms)
+//       ITimer1.attachInterruptInterval(2000, stopMotors, 2000);
+//       inMotion = true;
+//     }
+//     else if (c == 'b') {
+//       // Move motors backward at speed 255
+//       setMotorsBackward(255);
+//       // Schedule a stop after 1 second (1000 ms)
+//       ITimer1.attachInterruptInterval(2000, stopMotors, 2000);
+//       inMotion = true;
+//     }
   
-    else if (c == '\n' || c == '\r') {
-      // Do nothing
-    }
-    else {
-      // Any other character -> Stop immediately
-      stopMotors();
-    }
+//     else if (c == '\n' || c == '\r') {
+//       // Do nothing
+//     }
+//     else {
+//       // Any other character -> Stop immediately
+//       stopMotors();
+//     }
+//   }
+
+//   // Do other non-blocking tasks here if needed
+// }
+
+
+  if (digitalRead(TEST_IN) == LOW) {
+
+    // Move motors forward at speed 255
+    setMotorsForward(255);
+    // Schedule a stop after 1 second (1000 ms)
+    ITimer1.attachInterruptInterval(1000, stopMotors, 1000);
+    inMotion = true;
+
   }
 
   // Do other non-blocking tasks here if needed
@@ -122,7 +140,7 @@ void stopMotors() {
   analogWrite(RIGHT_PWM, 0);
 
   // Cancel any scheduled timer interrupt
-  //ITimer1.detachInterrupt();
+  ITimer1.detachInterrupt();
   inMotion = false;
   Serial.println("Motors stopped.");
 }
