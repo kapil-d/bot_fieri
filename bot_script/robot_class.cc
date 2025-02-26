@@ -27,7 +27,8 @@ void Robot::moveForward(float distance) {
     float rotations_to_turn = distance/wheel_circumference;
     int steps_to_drive = steps_per_rotation*rotations_to_turn;
 
-    digitalWrite(dirPin, 1); //can I use digital write here?
+    digitalWrite(dirPinLeftMotor, 1); 
+    digitalWrite(dirPinRightMotor, 1); 
 
     //TODO write to pulse pin
     // generatePulseSignal(steps_to_drive);
@@ -40,7 +41,8 @@ void Robot::moveForward(float distance) {
     float rotations_to_turn = distance/wheel_circumference;
     int steps_to_drive = steps_per_rotation*rotations_to_turn;
 
-    digitalWrite(dirPin, 0); //can I use digital write here?
+    digitalWrite(dirPinLeftMotor, 0); 
+    digitalWrite(dirPinRightMotor, 0); 
 
     //TODO write to pulse pin
     // generatePulseSignal(steps_to_drive);
@@ -50,18 +52,14 @@ void Robot::moveForward(float distance) {
 }
 
 
-void Robot::rotateLeft(float degrees) {
+void Robot::rotateCCW(float degrees) {
     float rotations_to_turn = distance/wheel_circumference;
     float arc_length = degrees/360*M_PI*wheel_base
     int steps_to_drive = (int)floor(arc_length*steps_per_rotation/wheel_circumference);
 
-    //if in robot's perspective:
-    //left wheel moves backwards by steps_to_drive
-    //right wheel moves forwards by steps_to_drive
 
-
-
-    digitalWrite(dirPin, 0); //can I use digital write here?
+    digitalWrite(dirPinLeftMotor, 0); //left wheel backwards
+    digitalWrite(dirPinRightMotor, 1); //right wheel forwards
 
     //TODO write to pulse pin
     // generatePulseSignal(steps_to_drive);
@@ -69,5 +67,19 @@ void Robot::rotateLeft(float degrees) {
     coords.bearing += degrees*2*M_PI/360; //in radians
 }
 
+void Robot::rotateCW(float degrees) {
+    float rotations_to_turn = distance/wheel_circumference;
+    float arc_length = degrees/360*M_PI*wheel_base
+    int steps_to_drive = (int)floor(arc_length*steps_per_rotation/wheel_circumference);
+
+
+    digitalWrite(dirPinLeftMotor, 1); //left wheel backwards
+    digitalWrite(dirPinRightMotor,0); //right wheel forwards
+
+    //TODO write to pulse pin
+    // generatePulseSignal(steps_to_drive);
+
+    coords.bearing -= degrees*2*M_PI/360; //in radians
+}
 
 

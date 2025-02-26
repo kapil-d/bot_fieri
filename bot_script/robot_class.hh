@@ -11,9 +11,9 @@ class Robot {
 
         void moveBackward(float distance);
 
-        void rotateLeft(float degrees);
+        void rotateCCW(float degrees);
 
-        void rotateRight(float degrees);
+        void rotateCW(float degrees);
 
     private:
         struct Coords {
@@ -25,7 +25,7 @@ class Robot {
         int steps_per_rotation;
         float wheel_circumference;
         float wheel_base;
-        
+
         int DirPinLeftMotor;
         int PulsePinLeftMotor;
         int DirPinRightMotor;
