@@ -26,12 +26,24 @@ volatile bool stepPinState   = false;   // Current state of the step output
 unsigned long stepIntervalMicros = 2000;
 
 
+int dir1;
+int dir2;
+float revolutionsNeeded;
+long stepsNeeded;
+float arc_length;
+
+float period = 1000; //us
+float distance_mm = 300; //mm
+float addtl_wait_duration = 1000; //ms
+float wait_start_millis = millis();
+float wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
+float degrees = 90; //degrees
 
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
 
-typedef enum {FWD1, WAIT_AFTER1 BKWD1, WAIT_AFTER2, ROTATE1, WAIT_AFTER3} state; //for testing
+typedef enum {IDLE, FWD1, WAIT_AFTER1, BKWD1, WAIT_AFTER2, ROTATE1, WAIT_AFTER3} States_t; //for testing
 
-state = FWD1;
+States_t state = FWD1;
 
 void stepISR();
 void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
@@ -57,8 +69,9 @@ void setup() {
   Serial.println("Timer interrupt based stepper control started.");
 
   // For demonstration, start a move after a short delay.
-  delay(2000);
-  moveForwardNonBlocking(300.0, 1000); // Move 300 mm with a 1000µs interval per toggle.
+  // delay(2000);
+  // moveForwardNonBlocking(300.0, 1000); // Move 300 mm with a 1000µs interval per toggle.
+
 }
 
 
@@ -68,25 +81,26 @@ void setup() {
 
 void loop() {
   // The main loop can run other tasks concurrently.
-  if (movementActive) {
-    Serial.print("Steps completed: ");
-    Serial.println(stepsCompleted);
-  } else {
-    Serial.println("Movement complete.");
-    // For demonstration, do nothing further once movement is complete.
-    delay(2000);  // Just to slow down serial prints; not affecting step generation.
-  }
+  // if (movementActive) {
+  //   Serial.print("Steps completed: ");
+  //   Serial.println(stepsCompleted);
+  // } else {
+  //   Serial.println("Movement complete.");
+  //   // For demonstration, do nothing further once movement is complete.
+  //   delay(2000);  // Just to slow down serial prints; not affecting step generation.
+  // }
 
   switch(state) {
     case IDLE:
       return; //something to do nothing
+
     case FWD1:
       
-      period = 1000 //us
-      distance_mm = 300 //mm
-      addtl_wait_duration = 1000 //ms
+      period = 1000; //us
+      distance_mm = 300; //mm
+      addtl_wait_duration = 1000; //ms
       wait_start_millis = millis();
-      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration
+      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
 
       move(FORWARD, period, distance_mm); 
       state = WAIT_AFTER1;
@@ -98,25 +112,44 @@ void loop() {
       }
 
     case BKWD1:
-    period = 1000 //us
-    distance_mm = 300 //mm
-    addtl_wait_duration = 1000 //ms
-    wait_start_millis = millis();
-    wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration
+      period = 1000; //us
+      distance_mm = 300; //mm
+      addtl_wait_duration = 1000; //ms
+      wait_start_millis = millis();
+      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
 
-    move(FORWARD, period, distance_mm); 
-    state = WAIT_AFTER2;
+      move(BACKWARD, period, distance_mm); 
+      state = WAIT_AFTER2;
 
+    case WAIT_AFTER2:
+      if (millis() - wait_start_millis >= wait_duration) {
+        state == ROTATE1;
+      }
+    
+    case ROTATE1:
+      period = 1000; //us
+      degrees = 90; //degrees
+      addtl_wait_duration = 1000; //ms
+      wait_start_millis = millis();
+      wait_duration = (degrees / 360 * 3.1415926 * WHEEL_BASE_MM * STEPS_PER_REV_TOTAL / WHEEL_CIRCUMFERENCE_MM) * period + addtl_wait_duration;
+
+      move(ROTATE_CW, period, 0, degrees); 
+      state = WAIT_AFTER3;
+
+    case WAIT_AFTER3:
+      if (millis() - wait_start_millis >= wait_duration) {
+        state == IDLE;
+      }
   }
 }
 
 
 
-void checkGlobalEvents(void) {
-  ifLimitSwitchesTrigger()
-    RespToLimitSwitches();
+// void checkGlobalEvents(void) {
+//   ifLimitSwitchesTrigger()
+//     RespToLimitSwitches();
 
-}
+// }
 
 
 
@@ -155,43 +188,41 @@ void stepISR() {
 
 // --------------------- Function to Initiate a Move ---------------------
 void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0) {
-  state++;
 
   switch(mode) {
     case FORWARD:
-      float revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
-      long stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
+      revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
+      stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
 
-      int dir1, dir2 = 0;
+      dir1, dir2 = 0;
 
       break;
     case BACKWARD:
-      float revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
-      long stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
+      revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
+      stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
 
-      int dir1, dir2 = 1;
+      dir1, dir2 = 1;
 
       break;
     case ROTATE_CW:
-      float arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
-      int stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
+      arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
+      stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
 
-      int dir1 = 0;
-      int dir2 = 1;
+      dir1 = 0;
+      dir2 = 1;
 
 
       break;
     case ROTATE_CCW:
-      float arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
-      int stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
+      arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
+      stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
 
-      int dir1 = 1;
-      int dir2 = 0;
+      dir1 = 1;
+      dir2 = 0;
 
       break;
   }
-
-
+  
   // Calculate the number of steps needed.
   
 
