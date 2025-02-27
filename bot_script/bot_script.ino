@@ -145,5 +145,35 @@ void setDirection(bool motorDirection, int DIR_PIN1, int DIR_PIN2) {
   stopMotors()
 
   // Now centered (can set coords if we choose to)
+
+
+
+//at top of file on startup
+enumerate(states);
+
+
+//Encoding of distances for each leg of open-loop journey
+std::map<char, char> my_map = {
+    { 'A', '1' },
+    { 'B', '2' },
+    { 'C', '3' }
+};
+
+
+int state = RST 
+  
+case (state) {
+  (RST):
+      orient();
+      state = find_pot;
+  find_pot:
+      setMotorsForward(speed, distance[find_pot])
+  push_pot:
+
+}
+
+
+
 }
 */
+

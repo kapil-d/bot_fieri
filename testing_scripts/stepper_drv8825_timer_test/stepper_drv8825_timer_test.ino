@@ -2,35 +2,34 @@
 #include <TimerOne.h> // Install this library via the Arduino Library Manager
 
 // --------------------- Pin Definitions ---------------------
-const int LEFT_MOTOR_PUL  = 3;
 const int LEFT_MOTOR_DIR  = 2;
-const int RIGHT_MOTOR_PUL = 4;
-const int RIGHT_MOTOR_DIR = 5;
-const int SLEEP = 7;
+const int LEFT_MOTOR_PUL  = 3;
+const int RIGHT_MOTOR_DIR = 4;
+const int RIGHT_MOTOR_PUL = 5;
+
+const int SLEEP = 7;             //when sleep is low, driver stops
 
 // --------------------- Robot / Stepper Parameters ---------------------
-// Change these values to match your robot’s hardware.
-const float WHEEL_DIAMETER_MM  = 40.0;          
+const float WHEEL_DIAMETER_MM  = 69.5;          
 const float WHEEL_CIRCUMFERENCE_MM = 3.14159 * WHEEL_DIAMETER_MM;
 const int   STEPS_PER_REV      = 200;    // Full step (1.8° step) motor
 const int   MICROSTEPPING      = 1;      // Set your DM542 DIP switches accordingly
-
-// Total steps per revolution considering microstepping
 const int STEPS_PER_REV_TOTAL = STEPS_PER_REV * MICROSTEPPING;
 
-// --------------------- Motion Control Variables ---------------------
-volatile bool movementActive = false; // Is a move in progress?
-volatile long targetSteps    = 0;      // Total steps to move
-volatile long stepsCompleted = 0;      // Steps executed so far
-volatile bool stepPinState   = false;   // Current state of the step output
 
-// Desired step interval (in microseconds) for each toggle.
-// For example, an interval of 1000µs means the pin toggles every 1000µs,
-// yielding a square wave with 50% duty cycle and a full period of 2000µs.
+// --------------------- Motion Control Variables ---------------------
+volatile bool movementActive = false;   // Is a move in progress?
+volatile long targetSteps    = 0;       // Total steps to move
+volatile long stepsCompleted = 0;       // Steps executed so far
+volatile bool stepPinState   = false;   // Current state of the step output
 unsigned long stepIntervalMicros = 2000;
 
+
 // --------------------- Timer Interrupt Service Routine ---------------------
-// This ISR is called every 'stepIntervalMicros' microseconds.
+// Handles the pulse signal. Enabled when:
+//  - movementActive == 1
+//  - targetSteps > 0
+// QUESTION: can't we have the clk running constantly and just pull sleep low when stopped?
 void stepISR() {
   if (!movementActive)
     return;
@@ -56,7 +55,7 @@ void stepISR() {
 void moveForwardNonBlocking(float distance_mm, unsigned long intervalUS) {
   // Calculate the number of steps needed.
   float revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
-  long stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL);
+  long stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
 
   // Set the direction pins for forward motion.
   // Adjust LOW/HIGH depending on how your motor wiring defines "forward."
@@ -70,8 +69,8 @@ void moveForwardNonBlocking(float distance_mm, unsigned long intervalUS) {
   stepPinState = false;
   digitalWrite(LEFT_MOTOR_PUL, stepPinState);
   digitalWrite(RIGHT_MOTOR_PUL, stepPinState);
-  movementActive = true;
   digitalWrite(SLEEP, HIGH);
+  movementActive = true;
 
   // Initialize Timer1 with the specified period in microseconds.
   Timer1.initialize(stepIntervalMicros);
@@ -85,12 +84,13 @@ void moveForwardNonBlocking(float distance_mm, unsigned long intervalUS) {
 }
 
 void setup() {
-  pinMode(SLEEP, OUTPUT);
+  
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
   pinMode(LEFT_MOTOR_DIR, OUTPUT);
   pinMode(RIGHT_MOTOR_PUL, OUTPUT);
   pinMode(RIGHT_MOTOR_DIR, OUTPUT);
+  pinMode(SLEEP, OUTPUT);
   
   // Set initial states.
   digitalWrite(SLEEP, LOW);
