@@ -108,7 +108,7 @@ void setup() {
 
   int limSwitch[4] = {digitalRead(LIMIT1), digitalRead(LIMIT2), digitalRead(LIMIT3), digitalRead(LIMIT4)};
   float distEO = hc.dist(0);
-  orient(distEO, limSwitch);
+  // orient(distEO, limSwitch);
 }
 
 
@@ -127,16 +127,17 @@ void loop() {
 
     case WAIT:
       if (millis() - wait_start_millis >= wait_duration) {
-        Serial.println("forward done");
+        // Serial.println(wait_duration);
+        // Serial.println("forward done");
         state = next_state;
       }
       break;
 
     case FWD1:
-      Serial.println("forward state starting");
-      period = 1000; //us
+      // Serial.println("forward state starting");
+      period = 3000; //us
       distance_mm = 300; //mm
-      addtl_wait_duration = 2000; //ms
+      addtl_wait_duration = 1000; //ms
       execution_time = move(FORWARD, period, distance_mm);
       wait_start_millis = millis();
       wait_duration = execution_time + addtl_wait_duration; 
@@ -146,10 +147,10 @@ void loop() {
       
      
     case BKWD1:
-      Serial.println("backward state starting");
-      period = 1000; //us
+      // Serial.println("backward state starting");
+      period = 3000; //us
       distance_mm = 300; //mm
-      addtl_wait_duration = 2000; //ms
+      addtl_wait_duration = 1000; //ms
       execution_time = move(BACKWARD, period, distance_mm);
       wait_start_millis = millis();
       wait_duration = execution_time + addtl_wait_duration; 
@@ -159,10 +160,10 @@ void loop() {
 
     
     case ROTATE1:
-      Serial.println("rotate state starting");
-      period = 1000; //us
+      // Serial.println("rotate state starting");
+      period = 5000; //us
       degrees = 90; //mm
-      addtl_wait_duration = 2000; //ms
+      addtl_wait_duration = 1000; //ms
       execution_time = move(ROTATE_CW, period, 0, degrees);
       wait_start_millis = millis();
       wait_duration = execution_time + addtl_wait_duration; 
@@ -240,16 +241,16 @@ float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degr
     case ROTATE_CW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
       stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
-      dir1 = 0;
-      dir2 = 1;
+      dir1 = 1;
+      dir2 = 0;
       ex_time = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
 
     case ROTATE_CCW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
       stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
-      dir1 = 1;
-      dir2 = 0;
+      dir1 = 0;
+      dir2 = 1;
       ex_time = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
   }
@@ -274,6 +275,7 @@ float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degr
   Timer1.initialize(stepIntervalMicros);
   Timer1.attachInterrupt(stepISR);
 
+  // Serial.println(state);
 
   return ex_time;
 }
