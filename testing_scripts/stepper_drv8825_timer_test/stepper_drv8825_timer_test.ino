@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <TimerOne.h> // Install this library via the Arduino Library Manager
+#include <Servo.h>
 
 // --------------------- Pin Definitions ---------------------
 const int LEFT_MOTOR_DIR  = 2;
@@ -12,6 +13,8 @@ const int LIMIT1 = 8;
 const int LIMIT2 = 9;
 const int LIMIT3 = 10;
 const int LIMIT4 = 11;
+
+const int SERVO = 6;
 
 // --------------------- Robot / Stepper Parameters ---------------------
 const float WHEEL_DIAMETER_MM  = 69.5;         
@@ -63,6 +66,13 @@ void RespToFirstLimitSwitchTrigger();
 float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
 
 
+
+//SERVO CODE
+Servo myServo;  // Create a Servo object
+
+bool positionToggle = false;  // Toggle flag for movement
+
+
 void setup() {
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
@@ -83,10 +93,12 @@ void setup() {
   digitalWrite(LEFT_MOTOR_DIR, LOW);
   digitalWrite(RIGHT_MOTOR_DIR, LOW);
 
+  
   Serial.begin(9600);
-  Serial.println("Timer interrupt based stepper control started.");
+  int initialPos = 90;
+  myServo.attach(SERVO);  // Attach the servo to the pin
+  myServo.write(initialPos);
 
-  move(FORWARD)
 }
 
 
@@ -97,8 +109,6 @@ void setup() {
 void loop() {
 
   checkGlobalEvents();
-
-  Serial.println(digitalRead(9));
 
   switch(state) {
     case IDLE:
