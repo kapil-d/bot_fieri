@@ -11,7 +11,7 @@ const int SLEEP = 7;             //when sleep is low, driver stops
 
 // --------------------- Robot / Stepper Parameters ---------------------
 const float WHEEL_DIAMETER_MM  = 69.5;         
-const float WHEEL_BASE_MM  = 69.5;        //TODO  
+const float WHEEL_BASE_MM  = 221;          
 const float WHEEL_CIRCUMFERENCE_MM = 3.14159 * WHEEL_DIAMETER_MM;
 const int   STEPS_PER_REV      = 200;    // Full step (1.8° step) motor
 const int   MICROSTEPPING      = 1;      // Set your DM542 DIP switches accordingly
@@ -42,8 +42,7 @@ float degrees = 90; //degrees
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
 
 typedef enum {IDLE, FWD1, WAIT_AFTER1, BKWD1, WAIT_AFTER2, ROTATE1, WAIT_AFTER3} States_t; //for testing
-
-States_t state = FWD1;
+States_t state = ROTATE1;
 
 void stepISR();
 void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
@@ -69,8 +68,8 @@ void setup() {
   Serial.println("Timer interrupt based stepper control started.");
 
   // For demonstration, start a move after a short delay.
-  // delay(2000);
-  // moveForwardNonBlocking(300.0, 1000); // Move 300 mm with a 1000µs interval per toggle.
+  //delay(2000);
+  //move(FORWARD, 1000, 300); // Move 300 mm with a 1000µs interval per toggle.
 
 }
 
@@ -90,56 +89,71 @@ void loop() {
   //   delay(2000);  // Just to slow down serial prints; not affecting step generation.
   // }
 
+  //Serial.println("state: " + state);
+
   switch(state) {
     case IDLE:
       return; //something to do nothing
 
     case FWD1:
-      
+      Serial.println("forward state starting");
       period = 1000; //us
       distance_mm = 300; //mm
       addtl_wait_duration = 1000; //ms
       wait_start_millis = millis();
-      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
+      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration; //in milliseconds
 
       move(FORWARD, period, distance_mm); 
       state = WAIT_AFTER1;
+      break;
+      
      
       
     case WAIT_AFTER1:
       if (millis() - wait_start_millis >= wait_duration) {
-        state == BKWD1;
+        Serial.println("forward done");
+        state = BKWD1;
       }
+      break;
 
     case BKWD1:
+    Serial.println("backward state starting");
       period = 1000; //us
-      distance_mm = 300; //mm
+      distance_mm = 400; //mm
       addtl_wait_duration = 1000; //ms
       wait_start_millis = millis();
-      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
+      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration;
 
       move(BACKWARD, period, distance_mm); 
       state = WAIT_AFTER2;
+      break;
 
     case WAIT_AFTER2:
       if (millis() - wait_start_millis >= wait_duration) {
-        state == ROTATE1;
+        state = ROTATE1;
+        Serial.println("backward done");
       }
+      break;
     
     case ROTATE1:
+      Serial.println("rotate state starting");
       period = 1000; //us
       degrees = 90; //degrees
       addtl_wait_duration = 1000; //ms
       wait_start_millis = millis();
-      wait_duration = (degrees / 360 * 3.1415926 * WHEEL_BASE_MM * STEPS_PER_REV_TOTAL / WHEEL_CIRCUMFERENCE_MM) * period + addtl_wait_duration;
+                      // (arc_length/circumference) * steps/rev * period + addtl_time
+      wait_duration = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration;
 
       move(ROTATE_CW, period, 0, degrees); 
       state = WAIT_AFTER3;
+      break;
 
     case WAIT_AFTER3:
       if (millis() - wait_start_millis >= wait_duration) {
-        state == IDLE;
+        Serial.println("rotate done");
+        state = IDLE;
       }
+      break;
   }
 }
 
@@ -206,7 +220,7 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
       break;
     case ROTATE_CW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
-      stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
+      stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
 
       dir1 = 0;
       dir2 = 1;
@@ -215,7 +229,7 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
       break;
     case ROTATE_CCW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
-      stepsNeeded = (int)floor(arc_length*STEPS_PER_REV_TOTAL/WHEEL_CIRCUMFERENCE_MM);
+      stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
 
       dir1 = 1;
       dir2 = 0;
@@ -245,9 +259,9 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
   Timer1.initialize(stepIntervalMicros);
   Timer1.attachInterrupt(stepISR);
   
-  Serial.print("Starting move: ");
-  Serial.print(distance_mm);
-  Serial.print(" mm (");
-  Serial.print(targetSteps);
-  Serial.println(" steps)");
+  // Serial.print("Starting move: ");
+  // Serial.print(distance_mm);
+  // Serial.print(" mm (");
+  // Serial.print(targetSteps);
+  // Serial.println(" steps)");
 }
