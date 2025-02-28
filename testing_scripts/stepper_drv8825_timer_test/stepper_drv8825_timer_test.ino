@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <TimerOne.h> // Install this library via the Arduino Library Manager
 #include <Servo.h>
+#include <HCSR04.h>
 
 // --------------------- Pin Definitions ---------------------
 const int LEFT_MOTOR_DIR  = 2;
@@ -15,6 +16,9 @@ const int LIMIT3 = 10;
 const int LIMIT4 = 11;
 
 const int SERVO = 6;
+
+const int TRIG = A0;
+const int ECHO = 12;
 
 // --------------------- Robot / Stepper Parameters ---------------------
 const float WHEEL_DIAMETER_MM  = 69.5;         
@@ -50,6 +54,9 @@ float wait_start_millis = millis();
 float wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
 float degrees = 90; //degrees
 
+// Ultrasonic Sensor Setup
+int THRESHOLD = 120;
+HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
 
 //States
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
@@ -64,7 +71,7 @@ void checkGlobalEvents();
 bool DetectFirstLimitSwitchTrigger();
 void RespToFirstLimitSwitchTrigger();
 float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
-
+void orient(float distEO, int limSwitch[4]);
 
 
 //SERVO CODE
@@ -99,6 +106,9 @@ void setup() {
   myServo.attach(SERVO);  // Attach the servo to the pin
   myServo.write(initialPos);
 
+  int limSwitch[4] = {digitalRead(LIMIT1), digitalRead(LIMIT2), digitalRead(LIMIT3), digitalRead(LIMIT4)};
+  float distEO = hc.dist(0);
+  orient(distEO, limSwitch);
 }
 
 
@@ -266,4 +276,55 @@ float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degr
 
 
   return ex_time;
+}
+
+void orient(float distEO, int limSwitch[4]) {
+  /* 
+  float: distEO
+  bool array len 4: limSwitch
+  float: THRESHOLD PARAM
+  */
+
+  // are these supposed to be false? --> set now though as always driving
+  digitalWrite(LEFT_MOTOR_PUL, false);
+  digitalWrite(RIGHT_MOTOR_PUL, false);
+  
+  while (distEO <= THRESHOLD) {
+    digitalWrite(LEFT_MOTOR_DIR, 0);
+    digitalWrite(RIGHT_MOTOR_DIR, 1);
+
+    // note we are oversampling! should have 60 ms delay supposedly
+    distEO = hc.dist(0);
+  }
+
+  // angle selected, so drive backwards
+  digitalWrite(LEFT_MOTOR_DIR, 1);
+  digitalWrite(RIGHT_MOTOR_DIR, 1);
+
+  // slightly weak, maybe find some kill conditin
+  // also maybe inbuilt for this?
+  while (true) {
+    int count = 0;
+    for (int i = 0; i < 4; i++) {
+      if (limSwitch[i]) {
+        count++;
+      }
+    }
+
+    if (count >= 2) {
+
+      // Now centered so set off and forward. set coordinates for procedure.
+      // setCoords();
+
+      digitalWrite(LEFT_MOTOR_DIR, 1);
+      digitalWrite(RIGHT_MOTOR_DIR, 1);
+      break;
+    } else {
+      limSwitch[0] = digitalRead(LIMIT1);
+      limSwitch[1] = digitalRead(LIMIT2);
+      limSwitch[2] = digitalRead(LIMIT3);
+      limSwitch[3] = digitalRead(LIMIT4);
+    }
+  }
+
 }
