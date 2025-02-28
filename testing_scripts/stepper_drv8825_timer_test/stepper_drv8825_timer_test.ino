@@ -8,6 +8,10 @@ const int RIGHT_MOTOR_DIR = 4;
 const int RIGHT_MOTOR_PUL = 5;
 
 const int SLEEP = 7;             //when sleep is low, driver stops
+const int LIMIT1 = 8;
+const int LIMIT2 = 9;
+const int LIMIT3 = 10;
+const int LIMIT4 = 11;
 
 // --------------------- Robot / Stepper Parameters ---------------------
 const float WHEEL_DIAMETER_MM  = 69.5;         
@@ -25,6 +29,10 @@ volatile long stepsCompleted = 0;       // Steps executed so far
 volatile bool stepPinState   = false;   // Current state of the step output
 unsigned long stepIntervalMicros = 2000;
 
+volatile bool standby = true;               // Set to 0 once the challenge begins
+volatile float ex_time = 0.0;               //these two signals are distinct!
+volatile float execution_time = 0.0;        //these two signals are distinct!
+
 
 int dir1;
 int dir2;
@@ -39,23 +47,34 @@ float wait_start_millis = millis();
 float wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * period + addtl_wait_duration;
 float degrees = 90; //degrees
 
+
+//States
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
+typedef enum {IDLE, WAIT, FWD1, BKWD1, ROTATE1} States_t; //for testing
+States_t state = IDLE;
+volatile States_t next_state = IDLE; //IMPORTANT SIGNAL
 
-typedef enum {IDLE, FWD1, WAIT_AFTER1, BKWD1, WAIT_AFTER2, ROTATE1, WAIT_AFTER3} States_t; //for testing
-States_t state = ROTATE1;
 
+//Function Definitions
 void stepISR();
-void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
+void checkGlobalEvents();
+bool DetectFirstLimitSwitchTrigger();
+void RespToFirstLimitSwitchTrigger();
+float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
 
 
 void setup() {
-  
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
   pinMode(LEFT_MOTOR_DIR, OUTPUT);
   pinMode(RIGHT_MOTOR_PUL, OUTPUT);
   pinMode(RIGHT_MOTOR_DIR, OUTPUT);
   pinMode(SLEEP, OUTPUT);
+  
+  pinMode(LIMIT1, INPUT);
+  pinMode(LIMIT2, INPUT);
+  pinMode(LIMIT3, INPUT);
+  pinMode(LIMIT4, INPUT);
   
   // Set initial states.
   digitalWrite(SLEEP, LOW);
@@ -67,10 +86,7 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Timer interrupt based stepper control started.");
 
-  // For demonstration, start a move after a short delay.
-  //delay(2000);
-  //move(FORWARD, 1000, 300); // Move 300 mm with a 1000µs interval per toggle.
-
+  move(FORWARD)
 }
 
 
@@ -79,101 +95,85 @@ void setup() {
 
 
 void loop() {
-  // The main loop can run other tasks concurrently.
-  // if (movementActive) {
-  //   Serial.print("Steps completed: ");
-  //   Serial.println(stepsCompleted);
-  // } else {
-  //   Serial.println("Movement complete.");
-  //   // For demonstration, do nothing further once movement is complete.
-  //   delay(2000);  // Just to slow down serial prints; not affecting step generation.
-  // }
 
-  //Serial.println("state: " + state);
+  checkGlobalEvents();
+
+  Serial.println(digitalRead(9));
 
   switch(state) {
     case IDLE:
+      standby = true;
       return; //something to do nothing
+
+    case WAIT:
+      if (millis() - wait_start_millis >= wait_duration) {
+        Serial.println("forward done");
+        state = next_state;
+      }
+      break;
 
     case FWD1:
       Serial.println("forward state starting");
       period = 1000; //us
       distance_mm = 300; //mm
-      addtl_wait_duration = 1000; //ms
+      addtl_wait_duration = 2000; //ms
+      execution_time = move(FORWARD, period, distance_mm);
       wait_start_millis = millis();
-      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration; //in milliseconds
-
-      move(FORWARD, period, distance_mm); 
-      state = WAIT_AFTER1;
+      wait_duration = execution_time + addtl_wait_duration; 
+      state = WAIT;
+      next_state = BKWD1;
       break;
       
      
-      
-    case WAIT_AFTER1:
-      if (millis() - wait_start_millis >= wait_duration) {
-        Serial.println("forward done");
-        state = BKWD1;
-      }
-      break;
-
     case BKWD1:
-    Serial.println("backward state starting");
+      Serial.println("backward state starting");
       period = 1000; //us
-      distance_mm = 400; //mm
-      addtl_wait_duration = 1000; //ms
+      distance_mm = 300; //mm
+      addtl_wait_duration = 2000; //ms
+      execution_time = move(BACKWARD, period, distance_mm);
       wait_start_millis = millis();
-      wait_duration = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration;
-
-      move(BACKWARD, period, distance_mm); 
-      state = WAIT_AFTER2;
+      wait_duration = execution_time + addtl_wait_duration; 
+      state = WAIT;
+      next_state = ROTATE1;
       break;
 
-    case WAIT_AFTER2:
-      if (millis() - wait_start_millis >= wait_duration) {
-        state = ROTATE1;
-        Serial.println("backward done");
-      }
-      break;
     
     case ROTATE1:
       Serial.println("rotate state starting");
       period = 1000; //us
-      degrees = 90; //degrees
-      addtl_wait_duration = 1000; //ms
+      degrees = 90; //mm
+      addtl_wait_duration = 2000; //ms
+      execution_time = move(ROTATE_CW, period, 0, degrees);
       wait_start_millis = millis();
-                      // (arc_length/circumference) * steps/rev * period + addtl_time
-      wait_duration = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000) + addtl_wait_duration;
-
-      move(ROTATE_CW, period, 0, degrees); 
-      state = WAIT_AFTER3;
-      break;
-
-    case WAIT_AFTER3:
-      if (millis() - wait_start_millis >= wait_duration) {
-        Serial.println("rotate done");
-        state = IDLE;
-      }
+      wait_duration = execution_time + addtl_wait_duration; 
+      state = WAIT;
+      next_state = IDLE;
       break;
   }
 }
 
 
 
-// void checkGlobalEvents(void) {
-//   ifLimitSwitchesTrigger()
-//     RespToLimitSwitches();
+void checkGlobalEvents(void) {
+  if (standby && DetectFirstLimitSwitchTrigger()) {
+      RespToFirstLimitSwitchTrigger();    //start timer, set state to the first motion state
+  }
+}
 
-// }
+bool DetectFirstLimitSwitchTrigger() {
+  return (digitalRead(LIMIT1) || digitalRead(LIMIT2) || digitalRead(LIMIT3) || digitalRead(LIMIT4));
+}
 
+void RespToFirstLimitSwitchTrigger() {
+  standby = false;
+  state = FWD1;
+  //ALSO START 2m 10s timer!!!
+}
 
 
 
 
 // --------------------- Timer Interrupt Service Routine ---------------------
-// Handles the pulse signal. Enabled when:
-//  - movementActive == 1
-//  - targetSteps > 0
-// QUESTION: can't we have the clk running constantly and just pull sleep low when stopped?
 void stepISR() {
   if (!movementActive)
     return;
@@ -197,47 +197,42 @@ void stepISR() {
 
 
 
-
-
-
 // --------------------- Function to Initiate a Move ---------------------
-void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0) {
+float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0) { //returns time to execute
 
   switch(mode) {
     case FORWARD:
       revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
       stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
-
-      dir1, dir2 = 0;
-
+      dir1 = 0;
+      dir2 = 0;
+      ex_time = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
+
     case BACKWARD:
       revolutionsNeeded = distance_mm / WHEEL_CIRCUMFERENCE_MM;
       stepsNeeded = (long)(revolutionsNeeded * STEPS_PER_REV_TOTAL); //should be int?
-
-      dir1, dir2 = 1;
-
+      dir1 = 1;
+      dir2 = 1;
+      ex_time = (distance_mm / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
+
     case ROTATE_CW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
       stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
-
       dir1 = 0;
       dir2 = 1;
-
-
+      ex_time = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
+
     case ROTATE_CCW:
       arc_length = degrees/360*3.1415926*WHEEL_BASE_MM;
       stepsNeeded = (int)floor((arc_length/WHEEL_CIRCUMFERENCE_MM)*STEPS_PER_REV_TOTAL);
-
       dir1 = 1;
       dir2 = 0;
-
+      ex_time = ((degrees/360*3.1415926*WHEEL_BASE_MM) / WHEEL_CIRCUMFERENCE_MM * STEPS_PER_REV_TOTAL) * (period/1000);
       break;
   }
-  
-  // Calculate the number of steps needed.
   
 
   // Set the direction pins for forward motion.
@@ -258,10 +253,7 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
   // Initialize Timer1 with the specified period in microseconds.
   Timer1.initialize(stepIntervalMicros);
   Timer1.attachInterrupt(stepISR);
-  
-  // Serial.print("Starting move: ");
-  // Serial.print(distance_mm);
-  // Serial.print(" mm (");
-  // Serial.print(targetSteps);
-  // Serial.println(" steps)");
+
+
+  return ex_time;
 }
