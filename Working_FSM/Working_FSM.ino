@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include <TimerOne.h> // Install this library via the Arduino Library Manager
 #include "ServoTimer2.h" 
-//#include <HCSR04.h>
-#include "HC_SR04.h"
+
 
 // --------------------- Pin Definitions ---------------------
 const int LEFT_MOTOR_DIR  = 2;
@@ -61,13 +60,8 @@ bool DetectCorner();
 bool DetectUSThreshold();
 void stepISR();
 void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degrees = 0);
-void orient(float distEO, int limSwitch[4]);
 void stopPreviousMotion();
 
-// Ultrasonic Sensor Setup
-int THRESHOLD = 120;
-//HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
-HC_SR04 sensor(TRIG, ECHO, 0);
 
 //SERVO SETUP
 ServoTimer2 myServo;
@@ -75,7 +69,6 @@ long trans_millis;
 
 void setup() {
   Serial.begin(9600);
-  sensor.begin(); //ultrasonic sensor
 
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
@@ -102,12 +95,6 @@ void setup() {
   //SERVO CODE: 750 is 0 degrees (holding balls back), and 1500 is 90 degrees up
   myServo.attach(SERVO);
   myServo.write(750);
-
-  //ULTRASONIC SENSOR CODE
-  //int limSwitch[4] = {digitalRead(LIMIT1), digitalRead(LIMIT2), digitalRead(LIMIT3), digitalRead(LIMIT4)};
-  //float distEO = hc.dist(0);
-  // orient(distEO, limSwitch);
-  //move(ROTATE_CW, 1000, 0, 90);
 }
 
 
@@ -118,9 +105,8 @@ void loop() {
   switch(state) {
     case IDLE:
       if (DetectFirstLimitSwitchTrigger()) {
-          move(ROTATE_CW, 1000, 0, 90); //rotate up to 720 degrees (for safety) with 1ms period
+          move(ROTATE_CW, 1000, 0, 360); //rotate up to 720 degrees (for safety) with 1ms period
           state = ORIENT_ROTATE;
-          sensor.start(); //start getting readings from US sensor
       }
       break;
 
@@ -160,6 +146,7 @@ void stopPreviousMotion() {
   movementActive = false;     //halt previous motion
   targetSteps = 0;            //halt previous motion
   digitalWrite(SLEEP, LOW);   //halt previous motion
+  delay(500);
 }
 
 bool DetectFirstLimitSwitchTrigger() {
@@ -168,10 +155,9 @@ bool DetectFirstLimitSwitchTrigger() {
 
 
 bool DetectUSThreshold() {
-  if (digitalRead(US_TRANSFER)) {
+  if (digitalRead(US_TRANSFER) == 1) {
     return true;
   }
-  
   return false;
 }
 
@@ -266,62 +252,4 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
   // Initialize Timer1 with the specified period in microseconds.
   Timer1.initialize(stepIntervalMicros);
   Timer1.attachInterrupt(stepISR);
-
-  //Serial.println("move call finished");
-
 }
-
-
-
-
-
-// void orient(float distEO, int limSwitch[4]) {
-//   /* 
-//   float: distEO
-//   bool array len 4: limSwitch
-//   float: THRESHOLD PARAM
-//   */
-
-//   // are these supposed to be false? --> set now though as always driving
-//   digitalWrite(LEFT_MOTOR_PUL, false);
-//   digitalWrite(RIGHT_MOTOR_PUL, false);
-  
-//   while (distEO <= THRESHOLD) {
-//     digitalWrite(LEFT_MOTOR_DIR, 0);
-//     digitalWrite(RIGHT_MOTOR_DIR, 1);
-
-//     // note we are oversampling! should have 60 ms delay supposedly
-//     distEO = hc.dist(0);
-//   }
-
-//   // angle selected, so drive backwards
-//   digitalWrite(LEFT_MOTOR_DIR, 1);
-//   digitalWrite(RIGHT_MOTOR_DIR, 1);
-
-//   // slightly weak, maybe find some kill conditin
-//   // also maybe inbuilt for this?
-//   while (true) {
-//     int count = 0;
-//     for (int i = 0; i < 4; i++) {
-//       if (limSwitch[i]) {
-//         count++;
-//       }
-//     }
-
-//     if (count >= 2) {
-
-//       // Now centered so set off and forward. set coordinates for procedure.
-//       // setCoords();
-
-//       digitalWrite(LEFT_MOTOR_DIR, 1);
-//       digitalWrite(RIGHT_MOTOR_DIR, 1);
-//       break;
-//     } else {
-//       limSwitch[0] = digitalRead(LIMIT1);
-//       limSwitch[1] = digitalRead(LIMIT2);
-//       limSwitch[2] = digitalRead(LIMIT3);
-//       limSwitch[3] = digitalRead(LIMIT4);
-//     }
-//   }
-
-// }
