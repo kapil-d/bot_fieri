@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <TimerOne.h> // Install this library via the Arduino Library Manager
 #include "ServoTimer2.h" 
-#include <HCSR04.h>
+//#include <HCSR04.h>
+#include "HC_SR04.h"
 
 // --------------------- Pin Definitions ---------------------
 const int LEFT_MOTOR_DIR  = 2;
@@ -66,7 +67,8 @@ void stopPreviousMotion();
 
 // Ultrasonic Sensor Setup
 int THRESHOLD = 120;
-HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
+//HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
+HC_SR04 sensor(TRIG, ECHO, 0);
 
 //SERVO SETUP
 ServoTimer2 myServo;
@@ -74,6 +76,7 @@ long trans_millis;
 
 void setup() {
   Serial.begin(9600);
+  sensor.begin(); //ultrasonic sensor
 
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
@@ -116,14 +119,12 @@ void loop() {
       if (DetectFirstLimitSwitchTrigger()) {
           move(ROTATE_CW, 1000, 0, 90); //rotate up to 720 degrees (for safety) with 1ms period
           state = ORIENT_ROTATE;
-          trans_millis = millis();
+          sensor.start(); //start getting readings from US sensor
       }
       break;
 
     case ORIENT_ROTATE:
-     
       if (DetectUSThreshold()) {
-      //if ((millis() - trans_millis >= 1000)) { 
         stopPreviousMotion();      //sets motionactive, targetSteps, and sleep = 0
         move(BACKWARD, 1000, 1000); //move backward by up to 1 meter
         state = ORIENT_BACKWARD;
@@ -164,10 +165,14 @@ bool DetectFirstLimitSwitchTrigger() {
 
 
 bool DetectUSThreshold() {
-  Serial.println(hc.dist(0));
-  if (hc.dist(0) > THRESHOLD) {
-      return true;
+  Serial.println(sensor.getRange());
+  if (sensor.isFinished()) {
+    if (sensor.getRange() > 100000) {
+        return true;
+    }
+    sensor.start();
   }
+  
   return false;
 }
 
@@ -271,53 +276,53 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
 
 
 
-void orient(float distEO, int limSwitch[4]) {
-  /* 
-  float: distEO
-  bool array len 4: limSwitch
-  float: THRESHOLD PARAM
-  */
+// void orient(float distEO, int limSwitch[4]) {
+//   /* 
+//   float: distEO
+//   bool array len 4: limSwitch
+//   float: THRESHOLD PARAM
+//   */
 
-  // are these supposed to be false? --> set now though as always driving
-  digitalWrite(LEFT_MOTOR_PUL, false);
-  digitalWrite(RIGHT_MOTOR_PUL, false);
+//   // are these supposed to be false? --> set now though as always driving
+//   digitalWrite(LEFT_MOTOR_PUL, false);
+//   digitalWrite(RIGHT_MOTOR_PUL, false);
   
-  while (distEO <= THRESHOLD) {
-    digitalWrite(LEFT_MOTOR_DIR, 0);
-    digitalWrite(RIGHT_MOTOR_DIR, 1);
+//   while (distEO <= THRESHOLD) {
+//     digitalWrite(LEFT_MOTOR_DIR, 0);
+//     digitalWrite(RIGHT_MOTOR_DIR, 1);
 
-    // note we are oversampling! should have 60 ms delay supposedly
-    distEO = hc.dist(0);
-  }
+//     // note we are oversampling! should have 60 ms delay supposedly
+//     distEO = hc.dist(0);
+//   }
 
-  // angle selected, so drive backwards
-  digitalWrite(LEFT_MOTOR_DIR, 1);
-  digitalWrite(RIGHT_MOTOR_DIR, 1);
+//   // angle selected, so drive backwards
+//   digitalWrite(LEFT_MOTOR_DIR, 1);
+//   digitalWrite(RIGHT_MOTOR_DIR, 1);
 
-  // slightly weak, maybe find some kill conditin
-  // also maybe inbuilt for this?
-  while (true) {
-    int count = 0;
-    for (int i = 0; i < 4; i++) {
-      if (limSwitch[i]) {
-        count++;
-      }
-    }
+//   // slightly weak, maybe find some kill conditin
+//   // also maybe inbuilt for this?
+//   while (true) {
+//     int count = 0;
+//     for (int i = 0; i < 4; i++) {
+//       if (limSwitch[i]) {
+//         count++;
+//       }
+//     }
 
-    if (count >= 2) {
+//     if (count >= 2) {
 
-      // Now centered so set off and forward. set coordinates for procedure.
-      // setCoords();
+//       // Now centered so set off and forward. set coordinates for procedure.
+//       // setCoords();
 
-      digitalWrite(LEFT_MOTOR_DIR, 1);
-      digitalWrite(RIGHT_MOTOR_DIR, 1);
-      break;
-    } else {
-      limSwitch[0] = digitalRead(LIMIT1);
-      limSwitch[1] = digitalRead(LIMIT2);
-      limSwitch[2] = digitalRead(LIMIT3);
-      limSwitch[3] = digitalRead(LIMIT4);
-    }
-  }
+//       digitalWrite(LEFT_MOTOR_DIR, 1);
+//       digitalWrite(RIGHT_MOTOR_DIR, 1);
+//       break;
+//     } else {
+//       limSwitch[0] = digitalRead(LIMIT1);
+//       limSwitch[1] = digitalRead(LIMIT2);
+//       limSwitch[2] = digitalRead(LIMIT3);
+//       limSwitch[3] = digitalRead(LIMIT4);
+//     }
+//   }
 
-}
+// }
