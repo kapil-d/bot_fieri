@@ -18,8 +18,7 @@ const int LIMIT4 = 11;
 
 const int SERVO = 9; 
 
-const int TRIG = 13;
-const int ECHO = 12;
+const int US_TRANSFER = 12; //signal coming from second arduino
 
 
 // --------------------- Robot / Stepper Parameters ---------------------
@@ -89,6 +88,8 @@ void setup() {
   pinMode(LIMIT2, INPUT);
   pinMode(LIMIT3, INPUT);
   pinMode(LIMIT4, INPUT);
+
+  pinMode(US_TRANSFER, INPUT);
   
   // Set initial states.
   digitalWrite(SLEEP, LOW);
@@ -167,13 +168,8 @@ bool DetectFirstLimitSwitchTrigger() {
 
 
 bool DetectUSThreshold() {
-  
-  if (sensor.isFinished()) {
-    Serial.println(sensor.getRange());
-    if (sensor.getRange() > 100000) {
-        return true;
-    }
-    sensor.start();
+  if (digitalRead(US_TRANSFER)) {
+    return true;
   }
   
   return false;
