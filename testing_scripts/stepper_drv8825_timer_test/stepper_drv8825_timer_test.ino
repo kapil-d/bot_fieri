@@ -123,7 +123,7 @@ void loop() {
   switch(state) {
     case IDLE:
       standby = true;
-      return; //something to do nothing
+      return; //do nothing
 
     case WAIT:
       if (millis() - wait_start_millis >= wait_duration) {
@@ -135,7 +135,7 @@ void loop() {
 
     case FWD1:
       // Serial.println("forward state starting");
-      period = 3000; //us
+      period = 1000; //us
       distance_mm = 300; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(FORWARD, period, distance_mm);
@@ -143,12 +143,14 @@ void loop() {
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
       next_state = BKWD1;
+      myServo.write(0);
+      Serial.println("executing fwd");
       break;
       
      
     case BKWD1:
       // Serial.println("backward state starting");
-      period = 3000; //us
+      period = 1000; //us
       distance_mm = 300; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(BACKWARD, period, distance_mm);
@@ -156,12 +158,13 @@ void loop() {
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
       next_state = ROTATE1;
+      myServo.write(90);
       break;
 
     
     case ROTATE1:
       // Serial.println("rotate state starting");
-      period = 5000; //us
+      period = 1000; //us
       degrees = 90; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(ROTATE_CW, period, 0, degrees);
@@ -169,6 +172,7 @@ void loop() {
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
       next_state = IDLE;
+      myServo.write(0);
       break;
   }
 }
@@ -188,6 +192,7 @@ bool DetectFirstLimitSwitchTrigger() {
 void RespToFirstLimitSwitchTrigger() {
   standby = false;
   state = FWD1;
+  Serial.println("LIMIT DETECTED!!");
   //ALSO START 2m 10s timer!!!
 }
 
@@ -279,6 +284,10 @@ float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degr
 
   return ex_time;
 }
+
+
+
+
 
 void orient(float distEO, int limSwitch[4]) {
   /* 

@@ -53,7 +53,7 @@ void Robot::moveForward(float distance) {
 
 
 void Robot::rotateCCW(float degrees) {
-    float rotations_to_turn = distance/wheel_circumference;
+x
     float arc_length = degrees/360*M_PI*wheel_base
     int steps_to_drive = (int)floor(arc_length*steps_per_rotation/wheel_circumference);
 

@@ -70,6 +70,7 @@ HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
 
 //SERVO SETUP
 ServoTimer2 myServo;
+long trans_millis;
 
 void setup() {
   Serial.begin(9600);
@@ -115,12 +116,14 @@ void loop() {
       if (DetectFirstLimitSwitchTrigger()) {
           move(ROTATE_CW, 1000, 0, 90); //rotate up to 720 degrees (for safety) with 1ms period
           state = ORIENT_ROTATE;
+          trans_millis = millis();
       }
       break;
 
     case ORIENT_ROTATE:
+     
       if (DetectUSThreshold()) {
-        Serial.println("Detected US Threshold");
+      //if ((millis() - trans_millis >= 1000)) { 
         stopPreviousMotion();      //sets motionactive, targetSteps, and sleep = 0
         move(BACKWARD, 1000, 1000); //move backward by up to 1 meter
         state = ORIENT_BACKWARD;
@@ -133,7 +136,7 @@ void loop() {
         move(FORWARD, 1000, 300); //move forward for 30cm
         myServo.write(1500);      //open the servo for test
         state = FWD1;
-        Serial.println("corner detected");
+        //Serial.println("corner detected");
       }
       break;
       
@@ -141,7 +144,7 @@ void loop() {
       if (movementActive == 0) { //forward move has completed
         state = IDLE;            //loop back to the beginning
         myServo.write(750);      //close the servo for test
-        Serial.println("forward completed");
+        //Serial.println("forward completed");
       }
       break;
   }
@@ -161,7 +164,7 @@ bool DetectFirstLimitSwitchTrigger() {
 
 
 bool DetectUSThreshold() {
-  
+  Serial.println(hc.dist(0));
   if (hc.dist(0) > THRESHOLD) {
       return true;
   }
@@ -260,7 +263,7 @@ void move(int mode, unsigned long intervalUS, float distance_mm = 0, float degre
   Timer1.initialize(stepIntervalMicros);
   Timer1.attachInterrupt(stepISR);
 
-  Serial.println("move call finished");
+  //Serial.println("move call finished");
 
 }
 
