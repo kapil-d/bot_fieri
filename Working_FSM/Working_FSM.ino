@@ -18,7 +18,7 @@ const int LIMIT4 = 11;
 
 const int SERVO = 9; 
 
-const int TRIG = A0;
+const int TRIG = 13;
 const int ECHO = 12;
 
 
@@ -141,6 +141,8 @@ void loop() {
       }
       break;
       
+
+    //COLE PICKS UP HERE
     case FWD1:
       if (movementActive == 0) { //forward move has completed
         state = IDLE;            //loop back to the beginning
@@ -165,8 +167,9 @@ bool DetectFirstLimitSwitchTrigger() {
 
 
 bool DetectUSThreshold() {
-  Serial.println(sensor.getRange());
+  
   if (sensor.isFinished()) {
+    Serial.println(sensor.getRange());
     if (sensor.getRange() > 100000) {
         return true;
     }
