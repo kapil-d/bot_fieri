@@ -17,7 +17,7 @@ const int LIMIT4 = 11;
 
 const int SERVO = 9; 
 
-const int US_TRANSFER = 12; //signal coming from second arduino
+const int US_TRANSFER = 13; //signal coming from second arduino
 
 
 // --------------------- Robot / Stepper Parameters ---------------------
@@ -101,20 +101,24 @@ void setup() {
 
 
 void loop() {
-
   switch(state) {
     case IDLE:
       if (DetectFirstLimitSwitchTrigger()) {
           move(ROTATE_CW, 1000, 0, 360); //rotate up to 720 degrees (for safety) with 1ms period
           state = ORIENT_ROTATE;
+          Serial.println("leaving idle");
+
       }
       break;
 
     case ORIENT_ROTATE:
+      
       if (DetectUSThreshold()) {
         stopPreviousMotion();      //sets motionactive, targetSteps, and sleep = 0
         move(BACKWARD, 1000, 1000); //move backward by up to 1 meter
         state = ORIENT_BACKWARD;
+        Serial.println("leaving rotate");
+
       }
       break;
 
@@ -124,7 +128,7 @@ void loop() {
         move(FORWARD, 1000, 300); //move forward for 30cm
         myServo.write(1500);      //open the servo for test
         state = FWD1;
-        //Serial.println("corner detected");
+        Serial.println("corner detected");
       }
       break;
       
@@ -137,6 +141,9 @@ void loop() {
         //Serial.println("forward completed");
       }
       break;
+
+
+
   }
 }
 
