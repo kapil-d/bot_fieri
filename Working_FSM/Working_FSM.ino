@@ -15,7 +15,9 @@ const int LIMIT3 = 6;
 const int LIMIT2 = 10;
 const int LIMIT4 = 11;
 
-const int SERVO = 9; 
+const int BALL_SERVO = 9; 
+const int IGNITION_SERVO = 12;
+
 
 const int US_TRANSFER = 13; //signal coming from second arduino
 
@@ -25,7 +27,7 @@ const float WHEEL_DIAMETER_MM  = 69.5;
 const float WHEEL_BASE_MM  = 221;          
 const float WHEEL_CIRCUMFERENCE_MM = 3.14159 * WHEEL_DIAMETER_MM;
 const int   STEPS_PER_REV      = 200;    // Full step (1.8° step) motor
-const int   MICROSTEPPING      = 4;      // Set your DM542 DIP switches accordingly
+const int MICROSTEPPING = 4;      // Set your DM542 DIP switches accordingly
 const int STEPS_PER_REV_TOTAL = STEPS_PER_REV * MICROSTEPPING;
 
 
@@ -50,7 +52,7 @@ float degrees = 90; //degrees
 
 //States
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
-typedef enum {IDLE, ORIENT_ROTATE, ORIENT_BACKWARD, FWD1} States_t; //for testing
+typedef enum {IDLE, ORIENT_ROTATE, ORIENT_BACKWARD, FWD1, ROT1, FWD2, ROT2, FWD3, ROT3, FWD4, BKWD1, ROT4, FWD5} States_t; //for testing
 States_t state = IDLE;
 
 
@@ -64,11 +66,12 @@ void stopPreviousMotion();
 
 
 //SERVO SETUP
-ServoTimer2 myServo;
-long trans_millis;
+ServoTimer2 ballServo;
+ServoTimer2 ignitionServo;
 
 void setup() {
   Serial.begin(9600);
+  //MICROSTEPPING = 4;
 
   // Configure pin modes.
   pinMode(LEFT_MOTOR_PUL, OUTPUT);
@@ -93,8 +96,10 @@ void setup() {
 
   
   //SERVO CODE: 750 is 0 degrees (holding balls back), and 1500 is 90 degrees up
-  myServo.attach(SERVO);
-  myServo.write(750);
+  ballServo.attach(BALL_SERVO);
+  ignitionServo.attach(IGNITION_SERVO);
+  ballServo.write(750);
+  ignitionServo.write(750); //DETERMINE INITIAL VALUE
 }
 
 
@@ -107,6 +112,7 @@ void loop() {
           move(ROTATE_CW, 1000, 0, 360); //rotate up to 720 degrees (for safety) with 1ms period
           state = ORIENT_ROTATE;
           Serial.println("leaving idle");
+          ignitionServo.write(2500); //DETERMINE VALUE
 
       }
       break;
@@ -115,7 +121,7 @@ void loop() {
       
       if (DetectUSThreshold()) {
         stopPreviousMotion();      //sets motionactive, targetSteps, and sleep = 0
-        move(BACKWARD, 1000, 1000); //move backward by up to 1 meter
+        move(BACKWARD, 2000, 1000); //move backward by up to 1 meter
         state = ORIENT_BACKWARD;
         Serial.println("leaving rotate");
 
@@ -125,25 +131,104 @@ void loop() {
     case ORIENT_BACKWARD:
       if (DetectCorner()) {
         stopPreviousMotion();
-        move(FORWARD, 1000, 300); //move forward for 30cm
-        myServo.write(1500);      //open the servo for test
+        ignitionServo.write(750);
+        move(FORWARD, 750, 250); //LEAVE THE CORNER
         state = FWD1;
         Serial.println("corner detected");
-      }
+      } 
       break;
       
 
-    //COLE PICKS UP HERE
-    case FWD1:
+    case FWD1: 
       if (movementActive == 0) { //forward move has completed
-        state = IDLE;            //loop back to the beginning
-        myServo.write(750);      //close the servo for test
-        //Serial.println("forward completed");
+        state = ROT1;            //loop back to the beginning
+        delay(500);
+        move(ROTATE_CW, 1000, 0, 7); //GET ON RIGHT BEARING
+        Serial.println("forward 1 completed");
+        
       }
       break;
 
+    case ROT1: 
+      if (movementActive == 0) { //forward move has completed
+        state = FWD2;            //loop back to the beginning
+        delay(500);
+        move(FORWARD, 1000, 450); //MOVE TOWARDS POT
+        Serial.println("rotate 2 completed");
+      }
+      break;
 
+    case FWD2: 
+      if (movementActive == 0) { //forward move has completed
+        state = ROT2;            //loop back to the beginning
+        delay(500);
+        move(ROTATE_CCW, 1000, 0, 50); //ROTATE TOWARDS POT
+        Serial.println("forward 2 completed");
+      }
+      break;
 
+    case ROT2: 
+      if (movementActive == 0) { //forward move has completed
+        state = FWD3;            //loop back to the beginning
+        delay(500);
+        move(FORWARD, 1000, 100); //DRIVE INTO ARMS
+        Serial.println("rotate 2 completed");
+      }
+      break;
+
+    case FWD3: 
+      if (movementActive == 0) { //forward move has completed
+        state = ROT3;            //loop back to the beginning
+        delay(500);
+        move(ROTATE_CCW, 1000, 0, 80); //ALIGN WITH ARMS  
+        Serial.println("forward 3 completed");
+
+      }
+      break;
+    
+    case ROT3: 
+      if (movementActive == 0) { //forward move has completed
+        state = FWD4;            //loop back to the beginning
+        delay(500);
+        move(FORWARD, 1000, 700); //PUSH POT
+        Serial.println("rotate 3 completed");
+      }
+      break;
+
+    case FWD4:  
+      if (movementActive == 0) { //forward move has completed
+        state = BKWD1;            //loop back to the beginning
+        delay(500);
+        move(BACKWARD, 1000, 70); //BACK UP FROM ARM
+        Serial.println("forward 4 completed");
+      }
+      break;
+
+    case BKWD1:  
+      if (movementActive == 0) { //forward move has completed
+        state = ROT4;            //loop back to the beginning
+        delay(500);
+        move(ROTATE_CW, 1000, 0, 75); //ALIGN RAMP WITH POT
+        Serial.println("backward 1 completed");
+      }
+      break;
+
+    case ROT4: //ALIGN WITH ARMS  
+      if (movementActive == 0) { //forward move has completed
+        state = FWD5;            //loop back to the beginning
+        delay(500);
+        move(FORWARD, 2000, 50); //MOVE ALL THE WAY FORWARD TO POT
+        Serial.println("forward 5 completed");
+      }
+      break;
+
+    case FWD5: //ALIGN WITH ARMS  
+      if (movementActive == 0) { //forward move has completed
+        state = IDLE;            //loop back to the beginning
+        ballServo.write(1500);   //DUMP THE BALL INTO THE POT
+        Serial.println("forward 5 completed --> exiting program.");
+      }
+      break;
   }
 }
 
@@ -153,7 +238,7 @@ void stopPreviousMotion() {
   movementActive = false;     //halt previous motion
   targetSteps = 0;            //halt previous motion
   digitalWrite(SLEEP, LOW);   //halt previous motion
-  delay(500);
+  delay(1000);
 }
 
 bool DetectFirstLimitSwitchTrigger() {
