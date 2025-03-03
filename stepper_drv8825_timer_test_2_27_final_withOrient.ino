@@ -60,7 +60,7 @@ HCSR04 hc(TRIG, new int[1]{ECHO}, 1);
 
 //States
 enum Motion {FORWARD, BACKWARD, ROTATE_CW, ROTATE_CCW};
-typedef enum {IDLE, WAIT, FWD1, BKWD1, ROTATE1} States_t; //for testing
+typedef enum {IDLE, WAIT, FWD1, BKWD1, ROTATE1, orientRotate, orientBack} States_t; //for testing
 States_t state = IDLE;
 volatile States_t next_state = IDLE; //IMPORTANT SIGNAL
 
@@ -106,9 +106,7 @@ void setup() {
   myServo.attach(SERVO);  // Attach the servo to the pin
   myServo.write(initialPos);
 
-  int limSwitch[4] = {digitalRead(LIMIT1), digitalRead(LIMIT2), digitalRead(LIMIT3), digitalRead(LIMIT4)};
-  float distEO = hc.dist(0);
-  // orient(distEO, limSwitch);
+  Serial.println("Setup Finished");
 }
 
 
@@ -123,7 +121,7 @@ void loop() {
   switch(state) {
     case IDLE:
       standby = true;
-      return; //do nothing
+      return; //something to do nothing
 
     case WAIT:
       if (millis() - wait_start_millis >= wait_duration) {
@@ -135,7 +133,7 @@ void loop() {
 
     case FWD1:
       // Serial.println("forward state starting");
-      period = 1000; //us
+      period = 3000; //us
       distance_mm = 300; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(FORWARD, period, distance_mm);
@@ -143,28 +141,25 @@ void loop() {
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
       next_state = BKWD1;
-      myServo.write(0);
-      Serial.println("executing fwd");
       break;
       
      
     case BKWD1:
       // Serial.println("backward state starting");
-      period = 1000; //us
+      period = 3000; //us
       distance_mm = 300; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(BACKWARD, period, distance_mm);
       wait_start_millis = millis();
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
-      next_state = ROTATE1;
-      myServo.write(90);
+      next_state = BKWD1;
       break;
 
     
     case ROTATE1:
       // Serial.println("rotate state starting");
-      period = 1000; //us
+      period = 5000; //us
       degrees = 90; //mm
       addtl_wait_duration = 1000; //ms
       execution_time = move(ROTATE_CW, period, 0, degrees);
@@ -172,7 +167,16 @@ void loop() {
       wait_duration = execution_time + addtl_wait_duration; 
       state = WAIT;
       next_state = IDLE;
-      myServo.write(0);
+      break;
+
+    
+    case orientRotate:
+      move(ROTATE_CW, 1000, 0, 360);
+      break;
+
+    
+    case orientBack:
+      move(FORWARD, 1000, 16, 0);
       break;
   }
 }
@@ -180,6 +184,15 @@ void loop() {
 
 
 void checkGlobalEvents(void) {
+  // if checked after standby wouldnt work
+  if (state == orientRotate && DetectUSThreshold()) {
+    RespToUSThreshold();
+  }
+
+  if (DetectCorner()) {
+    RespToCorner();
+  }
+
   if (standby && DetectFirstLimitSwitchTrigger()) {
       RespToFirstLimitSwitchTrigger();    //start timer, set state to the first motion state
   }
@@ -191,12 +204,42 @@ bool DetectFirstLimitSwitchTrigger() {
 
 void RespToFirstLimitSwitchTrigger() {
   standby = false;
-  state = FWD1;
-  Serial.println("LIMIT DETECTED!!");
+  state = orientRotate;
   //ALSO START 2m 10s timer!!!
 }
 
+bool DetectUSThreshold() {
+  return (hc.dist(0) >= THRESHOLD);
+}
 
+void RespToUSThreshold() {
+  // STOP ROTATE
+  targetSteps = 0;
+  state = orientBack;
+}
+
+bool DetectCorner() {
+  // is there a clever logic gate return to this???
+  if (digitalRead(LIMIT1) || digitalRead(LIMIT2) || digitalRead(LIMIT3) || digitalRead(LIMIT4)) {
+    int limSwitch[4] = {digitalRead(LIMIT1), digitalRead(LIMIT2), digitalRead(LIMIT3), digitalRead(LIMIT4)};
+    int count = 0;
+    for (int i = 0; i < 4; i++) {
+      if (limSwitch[i]) {
+        count++;
+      }
+
+      if (count > 1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void RespToCorner() {
+  targetSteps = 0;
+  state = BKWD1;
+}
 
 
 // --------------------- Timer Interrupt Service Routine ---------------------
@@ -285,10 +328,6 @@ float move(int mode, unsigned long intervalUS, float distance_mm = 0, float degr
   return ex_time;
 }
 
-
-
-
-
 void orient(float distEO, int limSwitch[4]) {
   /* 
   float: distEO
@@ -339,3 +378,4 @@ void orient(float distEO, int limSwitch[4]) {
   }
 
 }
+
